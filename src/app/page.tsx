@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { DollarSign, ShoppingCart } from 'lucide-react';
 import { useCollection, useFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, where, doc, getDoc } from 'firebase/firestore';

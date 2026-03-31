@@ -24,7 +24,7 @@ export function useCollection<T = DocumentData>(q: Query<DocumentData> | null) {
       setData(docs);
       setIsLoading(false);
     }, (err) => {
-      const errInfo = handleFirestoreError(err, OperationType.LIST, q.toString(), auth);
+      const errInfo = handleFirestoreError(err, OperationType.LIST, 'collection query', auth);
       setError(new Error(errInfo.error));
       setIsLoading(false);
     });

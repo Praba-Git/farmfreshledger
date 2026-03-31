@@ -28,6 +28,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const originalFetch = window.fetch;
+                Object.defineProperty(window, 'fetch', {
+                  get: () => originalFetch,
+                  set: (v) => { console.warn('An external script tried to override window.fetch. This is usually caused by browser extensions like Buster or network interceptors. The override was ignored to prevent a crash.'); },
+                  configurable: true
+                });
+              } catch (e) {
+                // If we can't redefine it, it might already be protected or restricted by the environment
+              }
+            `,
+          }}
+        />
+      </head>
       <body
         suppressHydrationWarning
         className={cn(
