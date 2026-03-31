@@ -23,9 +23,9 @@ import { useFirebase, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Category } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { processImageWithOcr } from '@/ai/flows/process-image-with-ocr';
-import { extractExpenseData } from '@/ai/flows/extract-expense-data-from-text';
+import { processImageWithOcr, extractExpenseData } from '@/lib/gemini';
 import { AddCategoryDialog } from './add-category-dialog';
+import { ScannedItemsReviewDialog } from './scanned-items-review-dialog';
 
 interface AddTransactionDialogProps {
   isOpen: boolean;
@@ -44,6 +44,8 @@ export function AddTransactionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [scannedItems, setScannedItems] = useState<any[]>([]);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -113,32 +115,24 @@ export function AddTransactionDialog({
             description: "Extracting text from image using AI OCR."
         });
 
-        const ocrResult = await processImageWithOcr({ image: base64String });
+        const ocrResult = await processImageWithOcr(base64String);
         
         toast({
             title: "Processing...",
             description: "Analyzing text to extract transaction details."
         });
 
-        const extractedData = await extractExpenseData({ 
-            text: ocrResult.text,
-            categories: categories.map(c => c.name)
-        });
+        const extractedData = await extractExpenseData(
+            ocrResult.text,
+            categories.map(c => c.name)
+        );
 
         if (extractedData.transactions && extractedData.transactions.length > 0) {
-          const first = extractedData.transactions[0];
-          setFormData({
-            amount: first.amount.toString(),
-            date: first.date.split('T')[0],
-            description: first.description,
-            type: first.type,
-            category: first.category,
-            quantityInKg: first.quantityInKg?.toString() || '',
-            ratePerKg: first.ratePerKg?.toString() || '',
-          });
+          setScannedItems(extractedData.transactions);
+          setIsReviewOpen(true);
           toast({
             title: 'Success',
-            description: 'Transaction data extracted successfully.',
+            description: `${extractedData.transactions.length} items extracted. Please review them.`,
           });
         }
       };
@@ -156,8 +150,43 @@ export function AddTransactionDialog({
     }
   };
 
+  const handleSaveScannedItems = async (items: any[]) => {
+    if (!firestore || !user) return;
+
+    try {
+      const promises = items.map(item => 
+        addDoc(collection(firestore, 'transactions'), {
+          ...item,
+          amount: parseFloat(item.amount),
+          quantityInKg: item.quantityInKg ? parseFloat(item.quantityInKg) : null,
+          ratePerKg: item.ratePerKg ? parseFloat(item.ratePerKg) : null,
+          date: new Date(item.date),
+          uid: user.uid,
+          createdAt: serverTimestamp(),
+        })
+      );
+
+      await Promise.all(promises);
+
+      toast({
+        title: 'Success',
+        description: `${items.length} transactions saved successfully.`,
+      });
+      onOpenChange(false, true);
+    } catch (error) {
+      console.error('Error saving scanned items:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save transactions. Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Transaction</DialogTitle>
@@ -299,11 +328,19 @@ export function AddTransactionDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      </Dialog>
       <AddCategoryDialog 
         isOpen={isAddingCategory} 
         onOpenChange={setIsAddingCategory}
         onSuccess={(name) => setFormData({ ...formData, category: name })}
       />
-    </Dialog>
+      <ScannedItemsReviewDialog
+        isOpen={isReviewOpen}
+        onOpenChange={setIsReviewOpen}
+        items={scannedItems}
+        categories={categories}
+        onSave={handleSaveScannedItems}
+      />
+    </>
   );
 }
