@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: transactions
+    // Fields:
+    //   - amount: number (required)
+    //   - date: timestamp (required)
+    //   - description: string (required, < 500 chars)
+    //   - type: string (required, 'income' or 'expense')
+    //   - category: string (required)
+    //   - quantityInKg: number (optional)
+    //   - ratePerKg: number (optional)
+    //   - uid: string (required, matches owner)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: categories
+    // Fields:
+    //   - name: string (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "mailtoempee@gmail.com" ||
+         request.auth.token.email == "admin@mydomain.com" ||
+         request.auth.token.role == 'admin' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isClerk() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "clerk@mydomain.com" ||
+         request.auth.token.role == 'clerk' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'clerk'));
+    }
+
+    function hasFullAccess() {
+      return isAdmin() || isClerk();
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Validation Functions
+    // ===============================================================
+
+    function isValidTransaction(data) {
+      return hasRequiredFields(['amount', 'date', 'description', 'type', 'category', 'uid']) &&
+             data.amount is number &&
+             data.date is timestamp &&
+             data.description is string && data.description.size() < 1000 &&
+             data.type in ['income', 'expense'] &&
+             data.category is string &&
+             data.uid is string &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidCategory(data) {
+      return hasRequiredFields(['name']) &&
+             hasOnlyAllowedFields(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /transactions/{transactionId} {
+      // Admins and Clerks can read all transactions; users can only read their own
+      allow read: if isAuthenticated() && (hasFullAccess() || resource == null || resource.data.uid == request.auth.uid);
+      
+      // Users can create their own transactions
+      allow create: if isAuthenticated() && 
+                      isValidTransaction(request.resource.data) && 
+                      request.resource.data.uid == request.auth.uid;
+      
+      // Admins and Clerks can update all transactions; users can only update their own
+      allow update: if isAuthenticated() && 
+                      (hasFullAccess() || isDocOwner()) && 
+                      isValidTransaction(request.resource.data) && 
+                      (hasFullAccess() || request.resource.data.uid == resource.data.uid);
+      
+      // Admins can delete all transactions; clerks can only delete their own
+      allow delete: if isAuthenticated() && (isAdmin() || isDocOwner());
+    }
+
+    match /categories/{categoryId} {
+      // All authenticated users can read categories
+      allow read: if isAuthenticated();
+      
+      // For prototype: allow any authenticated user to create categories (for seeding)
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
+      
+      // Only admins can update or delete categories
+      allow update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

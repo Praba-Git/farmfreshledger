@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A farm transaction (income or expense)",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number", "description": "The transaction amount" },
+        "date": { "type": "string", "format": "date-time", "description": "The date of the transaction" },
+        "description": { "type": "string", "description": "A brief description" },
+        "type": { "type": "string", "enum": ["income", "expense"], "description": "The type of transaction" },
+        "category": { "type": "string", "description": "The category name" },
+        "quantityInKg": { "type": "number", "description": "Quantity in kilograms (optional)" },
+        "ratePerKg": { "type": "number", "description": "Rate per kilogram (optional)" },
+        "uid": { "type": "string", "description": "The user ID of the owner" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" }
+      },
+      "required": ["amount", "date", "description", "type", "category", "uid"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A transaction category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the category" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Collection of farm transactions"
+    },
+    "categories": {
+      "schema": "Category",
+      "description": "Collection of transaction categories"
+    }
+  }
+}

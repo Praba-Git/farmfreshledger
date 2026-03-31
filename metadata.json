@@ -1,0 +1,5 @@
+{
+  "name": "Farm Fresh Ledger",
+  "description": "A simple app for tracking farm expenses and income.",
+  "requestFramePermissions": []
+}
