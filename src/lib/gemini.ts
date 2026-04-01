@@ -4,7 +4,7 @@ const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 export function getGeminiClient() {
   if (!apiKey) {
-    throw new Error("NEXT_PUBLIC_GEMINI_API_KEY is not set.");
+    throw new Error("NEXT_PUBLIC_GEMINI_API_KEY is not set. If you've deployed to Netlify, make sure to add this environment variable in your site settings.");
   }
   return new GoogleGenAI({ apiKey });
 }

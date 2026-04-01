@@ -106,42 +106,49 @@ export function AddTransactionDialog({
 
     setIsScanning(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      toast({
+        title: "Scanning...",
+        description: "Extracting text from image using AI OCR."
+      });
+
+      const ocrResult = await processImageWithOcr(base64String);
+      
+      toast({
+        title: "Processing...",
+        description: "Analyzing text to extract transaction details."
+      });
+
+      const extractedData = await extractExpenseData(
+        ocrResult.text,
+        categories.map(c => c.name)
+      );
+
+      if (extractedData.transactions && extractedData.transactions.length > 0) {
+        setScannedItems(extractedData.transactions);
+        setIsReviewOpen(true);
         toast({
-            title: "Scanning...",
-            description: "Extracting text from image using AI OCR."
+          title: 'Success',
+          description: `${extractedData.transactions.length} items extracted. Please review them.`,
         });
-
-        const ocrResult = await processImageWithOcr(base64String);
-        
+      } else {
         toast({
-            title: "Processing...",
-            description: "Analyzing text to extract transaction details."
+          title: 'No items found',
+          description: 'Could not extract any transactions from the image. Please try again with a clearer photo.',
+          variant: 'destructive',
         });
-
-        const extractedData = await extractExpenseData(
-            ocrResult.text,
-            categories.map(c => c.name)
-        );
-
-        if (extractedData.transactions && extractedData.transactions.length > 0) {
-          setScannedItems(extractedData.transactions);
-          setIsReviewOpen(true);
-          toast({
-            title: 'Success',
-            description: `${extractedData.transactions.length} items extracted. Please review them.`,
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
+      }
+    } catch (error: any) {
       console.error('Error scanning receipt:', error);
       toast({
         title: 'Error',
-        description: 'Failed to scan receipt. Please try again.',
+        description: error.message || 'Failed to scan receipt. Please try again.',
         variant: 'destructive',
       });
     } finally {
