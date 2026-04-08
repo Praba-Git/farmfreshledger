@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { processImageWithOcr, extractExpenseData } from '@/lib/gemini';
 import { AddCategoryDialog } from './add-category-dialog';
 import { ScannedItemsReviewDialog } from './scanned-items-review-dialog';
+import { parseLocalDate, formatLocalDate } from '@/lib/utils';
 
 interface AddTransactionDialogProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export function AddTransactionDialog({
 
   const [formData, setFormData] = useState({
     amount: '',
-    date: new Date().toISOString().split('T')[0],
+    date: formatLocalDate(new Date()),
     description: '',
     type: 'expense' as 'income' | 'expense',
     category: '',
@@ -69,7 +70,7 @@ export function AddTransactionDialog({
         amount: parseFloat(formData.amount),
         quantityInKg: formData.quantityInKg ? parseFloat(formData.quantityInKg) : null,
         ratePerKg: formData.ratePerKg ? parseFloat(formData.ratePerKg) : null,
-        date: new Date(formData.date),
+        date: parseLocalDate(formData.date),
         createdAt: serverTimestamp(),
         uid: user.uid,
       });
@@ -81,7 +82,7 @@ export function AddTransactionDialog({
       onOpenChange(false, true);
       setFormData({
         amount: '',
-        date: new Date().toISOString().split('T')[0],
+        date: formatLocalDate(new Date()),
         description: '',
         type: 'expense',
         category: '',
@@ -167,7 +168,7 @@ export function AddTransactionDialog({
           amount: parseFloat(item.amount),
           quantityInKg: item.quantityInKg ? parseFloat(item.quantityInKg) : null,
           ratePerKg: item.ratePerKg ? parseFloat(item.ratePerKg) : null,
-          date: new Date(item.date),
+          date: typeof item.date === 'string' ? parseLocalDate(item.date) : item.date,
           uid: user.uid,
           createdAt: serverTimestamp(),
         })

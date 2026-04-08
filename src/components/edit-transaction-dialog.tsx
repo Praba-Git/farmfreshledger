@@ -25,6 +25,7 @@ import type { Category, Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { updateTransaction } from '@/lib/actions';
 import { AddCategoryDialog } from './add-category-dialog';
+import { formatLocalDate, parseLocalDate } from '@/lib/utils';
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export function EditTransactionDialog({
       const date = transaction.date?.toDate ? transaction.date.toDate() : new Date(transaction.date);
       setFormData({
         amount: transaction.amount.toString(),
-        date: date.toISOString().split('T')[0],
+        date: formatLocalDate(date),
         description: transaction.description,
         type: transaction.type,
         category: transaction.category,
@@ -80,7 +81,7 @@ export function EditTransactionDialog({
         amount: parseFloat(formData.amount),
         quantityInKg: formData.quantityInKg ? parseFloat(formData.quantityInKg) : null,
         ratePerKg: formData.ratePerKg ? parseFloat(formData.ratePerKg) : null,
-        date: new Date(formData.date),
+        date: parseLocalDate(formData.date),
       } as any);
 
       toast({
